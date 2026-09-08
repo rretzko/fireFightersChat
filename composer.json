@@ -16,6 +16,7 @@
         "laravel/tinker": "^3.0",
         "livewire/blaze": "^1.0",
         "livewire/flux": "^2.13.1",
+        "livewire/flux-pro": "^2.13",
         "livewire/livewire": "^4.1"
     },
     "require-dev": {
@@ -59,6 +60,9 @@
         ],
         "lint:check": [
             "pint --parallel --test"
+        ],
+        "pint": [
+            "@lint"
         ],
         "ci:check": [
             "Composer\\Config::disableProcessTimeout",
@@ -110,5 +114,10 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [{
+        "name": "fluxui-pro",
+        "type": "composer",
+        "url": "https://composer.fluxui.dev"
+    }]
 }

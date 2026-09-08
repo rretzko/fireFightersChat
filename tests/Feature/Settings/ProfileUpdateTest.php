@@ -38,6 +38,52 @@ class ProfileUpdateTest extends TestCase
         $this->assertNull($user->email_verified_at);
     }
 
+    public function test_phone_number_can_be_set_and_is_normalized_to_e164(): void
+    {
+        $user = User::factory()->create(['contact_phone_number' => null]);
+
+        $this->actingAs($user);
+
+        Livewire::test('pages::settings.profile')
+            ->set('name', $user->name)
+            ->set('email', $user->email)
+            ->set('contact_phone_number', '(508) 555-0100')
+            ->call('updateProfileInformation')
+            ->assertHasNoErrors();
+
+        $this->assertSame('+15085550100', $user->fresh()->contact_phone_number);
+    }
+
+    public function test_phone_number_is_optional_and_can_be_cleared(): void
+    {
+        $user = User::factory()->create(['contact_phone_number' => '+15085550100']);
+
+        $this->actingAs($user);
+
+        Livewire::test('pages::settings.profile')
+            ->set('name', $user->name)
+            ->set('email', $user->email)
+            ->set('contact_phone_number', '')
+            ->call('updateProfileInformation')
+            ->assertHasNoErrors();
+
+        $this->assertNull($user->fresh()->contact_phone_number);
+    }
+
+    public function test_invalid_phone_number_is_rejected(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user);
+
+        Livewire::test('pages::settings.profile')
+            ->set('name', $user->name)
+            ->set('email', $user->email)
+            ->set('contact_phone_number', '123')
+            ->call('updateProfileInformation')
+            ->assertHasErrors(['contact_phone_number']);
+    }
+
     public function test_email_verification_status_is_unchanged_when_email_address_is_unchanged(): void
     {
         $user = User::factory()->create();

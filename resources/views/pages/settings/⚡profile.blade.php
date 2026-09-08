@@ -1,6 +1,7 @@
 <?php
 
 use App\Concerns\ProfileValidationRules;
+use App\Support\PhoneNumberNormalizer;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
@@ -14,6 +15,7 @@ new #[Title('Profile settings')] class extends Component {
 
     public string $name = '';
     public string $email = '';
+    public ?string $contact_phone_number = null;
 
     /**
      * Mount the component.
@@ -22,6 +24,7 @@ new #[Title('Profile settings')] class extends Component {
     {
         $this->name = Auth::user()->name;
         $this->email = Auth::user()->email;
+        $this->contact_phone_number = Auth::user()->contact_phone_number;
     }
 
     /**
@@ -31,7 +34,17 @@ new #[Title('Profile settings')] class extends Component {
     {
         $user = Auth::user();
 
+        // Livewire hands back "" for a cleared text input, not null — treat
+        // blank the same as "no phone number" before the nullable rule sees it.
+        if ($this->contact_phone_number !== null && trim($this->contact_phone_number) === '') {
+            $this->contact_phone_number = null;
+        }
+
         $validated = $this->validate($this->profileRules($user->id));
+
+        $validated['contact_phone_number'] = $validated['contact_phone_number'] !== null
+            ? PhoneNumberNormalizer::toE164($validated['contact_phone_number'])
+            : null;
 
         $user->fill($validated);
 
@@ -106,6 +119,8 @@ new #[Title('Profile settings')] class extends Component {
                     </div>
                 @endif
             </div>
+
+            <flux:input wire:model="contact_phone_number" :label="__('Phone number')" :description="__('Contact info for your account — separate from any organization\'s member roster.')" type="tel" autocomplete="tel" :placeholder="__('e.g. (555) 555-0100')" />
 
             <div class="flex items-center gap-4">
                 <div class="flex items-center justify-end">

@@ -15,6 +15,23 @@
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
+
+                    <flux:sidebar.item icon="paper-airplane" :href="route('broadcasts.index')" :current="request()->routeIs('broadcasts.*')" wire:navigate>
+                        {{ __('Broadcasts') }}
+                    </flux:sidebar.item>
+
+                    @can('viewAny', \App\Models\Member::class)
+                        <flux:sidebar.item icon="users" :href="route('members.index')" :current="request()->routeIs('members.*')" wire:navigate>
+                            {{ __('Members') }}
+                        </flux:sidebar.item>
+                    @endcan
+
+                    @php($currentOrganization = \App\Support\Tenant::get())
+                    @if ($currentOrganization && auth()->user()->can('manageTeam', $currentOrganization))
+                        <flux:sidebar.item icon="user-group" :href="route('team.index')" :current="request()->routeIs('team.*')" wire:navigate>
+                            {{ __('Team') }}
+                        </flux:sidebar.item>
+                    @endif
                 </flux:sidebar.group>
             </flux:sidebar.nav>
 

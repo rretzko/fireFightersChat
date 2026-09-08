@@ -3,6 +3,7 @@
 namespace App\Concerns;
 
 use App\Models\User;
+use App\Rules\PhoneNumber;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rule;
 
@@ -18,6 +19,7 @@ trait ProfileValidationRules
         return [
             'name' => $this->nameRules(),
             'email' => $this->emailRules($userId),
+            'contact_phone_number' => $this->contactPhoneNumberRules(),
         ];
     }
 
@@ -47,5 +49,17 @@ trait ProfileValidationRules
                 ? Rule::unique(User::class)
                 : Rule::unique(User::class)->ignore($userId),
         ];
+    }
+
+    /**
+     * Get the validation rules used to validate a user's contact phone
+     * number. Optional — not every login user needs one. This is directory
+     * info for the account, not members.phone_number (the SMS roster).
+     *
+     * @return array<int, ValidationRule|array<mixed>|string>
+     */
+    protected function contactPhoneNumberRules(): array
+    {
+        return ['nullable', 'string', new PhoneNumber];
     }
 }

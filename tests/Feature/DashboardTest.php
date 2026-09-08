@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Enums\OrganizationRole;
+use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -16,9 +18,21 @@ class DashboardTest extends TestCase
         $response->assertRedirect(route('login'));
     }
 
-    public function test_authenticated_users_can_visit_the_dashboard(): void
+    public function test_authenticated_users_without_an_organization_are_sent_to_create_one(): void
     {
         $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $response = $this->get(route('dashboard'));
+        $response->assertRedirect(route('organizations.create'));
+    }
+
+    public function test_authenticated_users_with_an_organization_can_visit_the_dashboard(): void
+    {
+        $user = User::factory()->create();
+        $organization = Organization::factory()->create();
+        $organization->users()->attach($user, ['role' => OrganizationRole::Owner, 'joined_at' => now()]);
+
         $this->actingAs($user);
 
         $response = $this->get(route('dashboard'));
