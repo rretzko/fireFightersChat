@@ -153,14 +153,23 @@ integration to receive anything from.
 - Wrap Twilio behind an `SmsGateway` interface (`send(Member $member, string $body): SendResult`) with two
   implementations: `LogSmsGateway` (writes to log/DB instead of sending — used until real credentials exist) and
   `TwilioSmsGateway`. Bind via config so switching is a one-line env change, not a code change.
-  **`SmsGateway` + `LogSmsGateway` implemented 2026-09-08** (`app/Services/Sms/`), bound via `config/sms.php`'s
-  `gateway` key in `AppServiceProvider`. `TwilioSmsGateway` is still Phase 4 — add a `'twilio'` case to that
-  match expression and the rest of the pipeline needs no changes.
+  **Both implemented** — `SmsGateway` + `LogSmsGateway` 2026-09-08, `TwilioSmsGateway` the same day once the
+  user provided a Twilio Account SID/Auth Token/phone number. `config('sms.gateway')` still defaults to `log`
+  (unchanged in `.env`) — flipping to `twilio` is a one-line env change whenever the user says go, but that
+  switch is being left to an explicit decision rather than flipped automatically, since it has a real-world
+  side effect (actual texts, actual cost) the first time someone clicks "send." Tested against a mocked
+  `MessageList` (Twilio's send resource) — no real API calls happen in the test suite.
 - Each **organization** eventually gets its own Twilio phone number + Messaging Service + A2P 10DLC campaign
   (per the business plan's per-tenant registration model). For the prototype, a single shared Twilio number/sandbox
   is fine as long as the data model already supports per-org numbers (don't hardcode a single number app-wide).
+  **`TwilioSmsGateway` already checks `organization.twilio_phone_number` first**, falling back to the one
+  shared number in `TWILIO_PHONE_NUMBER` — so a second org can get its own number later with no code change.
 - A2P 10DLC brand approval: ~1–3 business days. Campaign review: ~10–15 days (as of the business plan's research).
   **Treat this as onboarding lead time, not something the prototype needs to complete** — mock sending until it clears.
+  **Confirmed NOT started, 2026-09-08** — queried the Twilio API directly for this account (brand registrations,
+  messaging services); found zero of either. A live test send to a real phone confirmed the practical consequence:
+  Twilio's API accepts the message (real SID returned) but the carrier rejects actual delivery with error 30034
+  ("US A2P 10DLC — Message from an Unregistered Number"). See Gotcha #2.
 
 ## 8. Security & Compliance Checklist (from business plan §7)
 
@@ -183,10 +192,18 @@ Ranked by severity.
    use SQLite for local dev only; provision Laravel Serverless Postgres or Laravel MySQL for the deployed
    environment before any data anyone cares about is entered. This reverses the original "SQLite everywhere"
    plan — flagging it now before real demo data gets lost.
-2. **No real SMS sending yet.** The mocked `SmsGateway` means the deployed demo cannot actually text a real
-   phone until Twilio credentials + A2P 10DLC registration are in place. Plan the sales demo around this (e.g.
-   a "delivery log" view standing in for real texts) or budget the 10–15 day campaign-review lead time before
-   a live demo is needed.
+2. **Real sending is built and proven to work — real delivery is not, until A2P 10DLC registration exists.**
+   `TwilioSmsGateway` is implemented and confirmed working at the integration level (2026-09-08): a live test
+   broadcast through the actual app pipeline got a real Twilio message SID back, no errors. But this account has
+   **zero Brand Registrations and zero Messaging Services** (confirmed via the Twilio API, not assumed) — the
+   user believed registration was already done; it hadn't been started. The same test message came back
+   `undelivered` with error 30034 ("US A2P 10DLC — Message from an Unregistered Number") when its status was
+   checked a few seconds later — Twilio's API silently accepts unregistered sends and only the *carrier*
+   rejects them, so this genuinely looks like success unless something checks delivery status afterward.
+   `SMS_GATEWAY` is back to `log` on purpose after this test — leaving it on `twilio` in this state would mean
+   every future broadcast looks successful in the app while silently reaching nobody. Registration needs to be
+   started from scratch (~1–3 days brand, ~10–15 days campaign) before flipping back for anything beyond a
+   controlled internal test like this one.
 3. ~~Multi-tenant data isolation is unproven.~~ **Resolved 2026-09-08** — `BelongsToOrganization` /
    `OrganizationScope` enforce it (fail-closed, see Section 5), and `tests/Feature/Tenancy/OrganizationIsolationTest.php`
    specifically asserts org A can never see org B's members/broadcasts, including by direct ID lookup and via

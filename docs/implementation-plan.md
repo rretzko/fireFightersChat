@@ -250,18 +250,53 @@ down via tinker each time — nothing was left in the local dev database.
 
 73/73 → 88/88 tests passing, PHPStan (level 7) clean, Pint clean.
 
-## Phase 4 — Real Twilio Integration
+## Phase 4 — Real Twilio Integration (in progress)
 
-- [ ] `TwilioSmsGateway` implementation; env-driven switch from `LogSmsGateway`.
-- [ ] Twilio phone number + Messaging Service configured (start with one shared number/sandbox for the demo org).
+- [x] `TwilioSmsGateway` implementation; env-driven switch from `LogSmsGateway` (2026-09-08). Depends on the
+      account's `MessageList` resource directly (`$client->messages`) rather than `Twilio\Rest\Client` itself —
+      the SDK resolves `->messages` through magic `__get`/`__call` proxying, which fights standard mocking;
+      `MessageList::create()` is a plain, non-final method that mocks cleanly. `AppServiceProvider` binds
+      `Twilio\Rest\Client` and `MessageList` as lazy singletons (never instantiated unless `sms.gateway` is
+      actually `twilio`), so staying on `log` needs no credentials at all.
+- [x] Twilio phone number configured — one real number in `TWILIO_PHONE_NUMBER`, used as the fallback "from"
+      when an organization has no `twilio_phone_number` of its own yet. The per-org column already exists
+      (Phase 1 schema) and takes priority when set, so this isn't a hardcoded-forever single number.
+- [ ] Twilio Messaging Service (recommended over a bare number once A2P 10DLC is registered — ties the number
+      to the approved campaign).
 - [ ] Outbound status-callback webhook endpoint + **signature validation**.
 - [ ] Inbound-message webhook endpoint + **signature validation**.
 - [ ] STOP/START/HELP keyword interception in the inbound webhook, updating `members.status`
       (Gotcha #5 — do this before any real number sends to real phones, even in internal testing).
 - [ ] Reply routing: inbound message → resolve member → surface to original sender (in-app first; SMS-back-to-sender
       is a stretch goal, see open question in the reference doc).
-- [ ] A2P 10DLC brand + campaign registration kicked off for the demo org (real-world lead time: ~10-15 days for
-      campaign review — start this well before a live customer demo is needed).
+- [ ] **A2P 10DLC brand + campaign registration — confirmed NOT started (2026-09-08).** The user believed this
+      account was "already approved"; queried the Twilio API directly (`brandRegistrations`, `services` /
+      Messaging Services) and found zero Brand Registrations and zero Messaging Services on the account. This
+      needs to be started from scratch — real-world lead time ~1–3 days brand approval, ~10–15 days campaign
+      review. Budget this before a live customer demo is needed.
+
+**Live test send performed 2026-09-08** (with the user's explicit go-ahead): flipped `SMS_GATEWAY=twilio`,
+sent one real broadcast through the actual app pipeline (`SendBroadcast` → `SendBroadcastMessage` job →
+`TwilioSmsGateway`) to a real phone number the user provided. Result: **the integration works, delivery
+doesn't (yet)**.
+- Twilio's API accepted the send and returned a real message SID — confirms the code path (gateway, container
+  wiring, per-org/fallback "from" number logic, job fan-out) all work correctly end to end.
+- Fetching that message's status back from the Twilio API a few seconds later showed `undelivered`, error
+  **30034: "US A2P 10DLC — Message from an Unregistered Number."** This is the carrier rejecting the message
+  after Twilio accepted it — exactly the failure mode flagged as a risk before sending, now confirmed with a
+  real error code rather than left as a theoretical concern. [Twilio's docs for 30034](https://www.twilio.com/docs/api/errors/30034)
+  confirm this is specifically the unregistered-A2P-number rejection, not some other delivery problem.
+- **`SMS_GATEWAY` reverted back to `log` afterward** — a deliberate call, not an oversight. Leaving it on
+  `twilio` in this state would mean every future broadcast *looks* successful in the app (Twilio's API always
+  accepts the send, so `messages.status` would show `sent`) while silently never reaching any recipient — a
+  worse trap than staying on `log`, which at least doesn't pretend to deliver. Flip it back once A2P
+  registration is actually complete; nothing else needs to change.
+- Demo org/member/broadcast/message rows created for this test were deleted afterward — nothing was left in
+  the database from it, only this record of what happened.
+
+Real credentials live only in `.env` (confirmed gitignored before writing them) — `.env.example` got matching
+placeholder keys (`SMS_GATEWAY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`), all empty/`log`
+default, safe to commit.
 
 ## Phase 5 — Polish for Prospective-Customer Demo
 

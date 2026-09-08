@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'twilio' => [
+        'sid' => env('TWILIO_ACCOUNT_SID'),
+        'token' => env('TWILIO_AUTH_TOKEN'),
+        // Fallback "from" number used when an organization has no
+        // twilio_phone_number of its own yet (see organizations table).
+        'from' => env('TWILIO_PHONE_NUMBER'),
+    ],
+
 ];
