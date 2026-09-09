@@ -55,3 +55,28 @@ from the environment. After attaching the database, run migrations against it
 (either via a configured deployment migration command in Settings →
 Deployments, or manually with `php artisan migrate --force` through the Cloud
 console/CLI).
+
+### Broadcasts stuck on "Sending" with no logs
+
+`SendBroadcast` fans out one queued job (`SendBroadcastMessage`) per recipient
+via `Bus::batch()`. The app's default queue connection is `database`
+(`QUEUE_CONNECTION=database`, see `.env.example`), which pushes jobs onto the
+`jobs` table — but Laravel Cloud does not run a queue worker by default. With
+nothing consuming that table, jobs sit forever: the broadcast status hangs at
+`sending`, and the log stream never shows the `Mock SMS sent` entries from
+`LogSmsGateway::send()`, because the job that would log them never executes.
+
+**Fix (used for this demo):** set `QUEUE_CONNECTION=sync` as an environment
+variable in **cloud.laravel.com → your app → Settings → Environment**, then
+redeploy. With the sync driver, `Bus::batch()->dispatch()` runs the batch
+(including its recipients and the `finally()` callback that marks the
+broadcast `sent`) inline within the request — no separate worker needed. This
+is fine for a POC with the mock SMS gateway and small recipient counts;
+`app/Actions/SendBroadcast.php` already accounts for this (see its comments on
+why status is set to `Sending` *before* dispatch).
+
+For a production deployment with real send volume, prefer a proper queue
+worker instead of `sync`: either a `queue:work` background process on the App
+cluster, or a Managed Queue (Settings → Add Compute → Managed Queue), which
+also sets `QUEUE_CONNECTION=cloud` automatically. See [Queues - Laravel
+Cloud](https://laravel.com/cloud/docs/queues).
