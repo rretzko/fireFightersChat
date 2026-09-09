@@ -97,6 +97,33 @@ The immediate first steps are:
                         minimum deployment on my apps, but it's not set up on this demo.
                     </flux:callout.text>
                 </flux:callout>
+
+                <div>
+                    <flux:heading size="lg" class="mb-2">Noted cost factors</flux:heading>
+
+                    <ul class="list-disc space-y-2 ps-5 text-base text-zinc-600 dark:text-zinc-400">
+                        <li>Website (~$20/year)</li>
+                        <li>Twilio usage (~$0.01-0.02/text)</li>
+                        <li>Twilio phone number (~$2/month)</li>
+                        <li>Platform cost: Laravel Cloud (~$5/month)</li>
+                        <li>Database cost: Laravel Cloud (~$7/month)</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <flux:heading size="lg" class="mb-2">Technical Consideration</flux:heading>
+
+                    <ul class="list-disc space-y-2 ps-5 text-base text-zinc-600 dark:text-zinc-400">
+                        <li>Text responses return to a single assigned phone number, NOT the sender's phone number.</li>
+                        <li>
+                            In multi-tenant environment, costs will expand (and be allocatable) to the
+                            tenant; e.g. each tenant will have its own assigned phone number, usage, etc.
+                            The implication of this is that the administrator becomes an Internet Service
+                            Provider (ISP) not a single service provider and will need to juggle the
+                            complexities of managing accounts vs. an app.
+                        </li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
